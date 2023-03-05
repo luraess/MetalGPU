@@ -1,5 +1,6 @@
 # https://github.com/JuliaGPU/Metal.jl
 # https://juliagpu.org/post/2022-06-24-metal/
+# https://juliagpu.org/post/2023-03-03-metal_0.2/
 # Perf on MacBookAir M2: memcopy 86 GB/s, 2D diffusion 83 GB/s (96%)
 # NOTE: soon, grid will become groups in kernel launch params
 using Metal
@@ -33,7 +34,7 @@ function compute!(T2, T, D, dt, nthreads, nblocks)
     return
 end
 
-function main(; do_visu=false, do_bench=false)
+function main(; do_visu=false, run_type=:simu)
     # Metal.versioninfo()
     # current_device()
     # physics
@@ -41,7 +42,7 @@ function main(; do_visu=false, do_bench=false)
     D0 = 1.0f0
     T0 = 2.0f0
     # numerics
-    nx = ny = 8192
+    nx = ny = 4096#8192
     nt = 3nx
     nout = ceil(Int32, 0.3nx)
     nthreads = (32, 8)
@@ -55,7 +56,7 @@ function main(; do_visu=false, do_bench=false)
     T = MtlArray{Float32}(undef, nx, ny); copy!(T, T0 .* exp.( .- xc.^2 .- yc'.^2))
     D = MtlArray{Float32}(undef, nx, ny); copy!(D, D0 .* ones(nx,ny))
     T2 = copy(T)
-    if !do_bench
+    if run_type==:simu
         for it = 1:nt
             Metal.@sync @metal threads=nthreads grid=nblocks laplace!(T2, T, D, dt, _dx, _dy)
             T, T2 = T2, T
@@ -64,7 +65,7 @@ function main(; do_visu=false, do_bench=false)
                 display(heatmap(Array(T)', c=:turbo, clims=(0, T0), aspect_ratio=1, xlims=(1, nx), ylims=(1, ny), title="Metal.jl diffusion step $it"))
             end
         end
-    else    
+    elseif run_type==:bench
         t_it = @belapsed compute!($T2, $T, $D, $dt, $nthreads, $nblocks)
         t_eff1 = sizeof(eltype(T)) * 3 * length(T) * 1e-9 / t_it
         println(" Perf memcopy: time (s) = $(round(t_it, digits=5)), T_eff (GB/s) = $(round(t_eff1, digits=2))")
@@ -72,12 +73,14 @@ function main(; do_visu=false, do_bench=false)
         t_it = @belapsed compute!($T2, $T, $D, $dt, $_dx, $_dy, $nthreads, $nblocks)
         t_eff2 = sizeof(eltype(T)) * 3 * length(T) * 1e-9 / t_it
         println(" Perf Laplace: time (s) = $(round(t_it, digits=5)), T_eff (GB/s) = $(round(t_eff2, digits=2)) ($(round(t_eff2/t_eff1, digits=2))% of memcopy)")
+    elseif run_type==:profile
+        # INFO: needs `ENV["METAL_CAPTURE_ENABLED"] = 1` to be set
+        Metal.@profile Metal.@sync @metal threads=nthreads grid=nblocks laplace!(T2, T, D, dt, _dx, _dy)
     end
-
     finalize(T)
     finalize(D)
     finalize(T2)
     return
 end
 
-main(; do_visu=false, do_bench=true)
+main(; do_visu=false, run_type=:profile)
