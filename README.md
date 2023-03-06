@@ -4,6 +4,8 @@ Test [Metal.jl](https://github.com/JuliaGPU/Metal.jl) on ARM M-serie GPUs.
 ## About
 Mostly dev sandbox to try out new Metal.jl features on Apple's M2 processors.
 
+⚠️ currently, only `Float32` is being supported. For `Float64`, one could try using [a construct from DoubleFloats.jl](https://github.com/JuliaMath/DoubleFloats.jl/blob/ef689ccbab37d84943e2533309d34c6665229cab/src/Double.jl#L30) _which may impact performance though._
+
 ## Performance
 Running [`diffusion_2D_kp.jl`](scripts/diffusion_2D_kp.jl) on a MacBookAir with M2 chip results in
 
