@@ -20,4 +20,4 @@ Recent blog posts with features highlights:
 - https://juliagpu.org/post/2023-03-03-metal_0.2/
 
 ### Notes
-Soon, `grid` will become `groups` in kernel launch params to avoid confusion
+Gurrent version (29.03.23) requires `Metal#main`.

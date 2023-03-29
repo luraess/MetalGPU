@@ -2,7 +2,6 @@
 # https://juliagpu.org/post/2022-06-24-metal/
 # https://juliagpu.org/post/2023-03-03-metal_0.2/
 # Perf on MacBookAir M2: memcopy 86 GB/s, 2D diffusion 83 GB/s (96%)
-# NOTE: soon, grid will become groups in kernel launch params
 using Metal
 using Plots
 using BenchmarkTools
@@ -25,12 +24,12 @@ function laplace!(T2, T, D, dt, _dx, _dy)
 end
 
 function compute!(T2, T, D, dt, _dx, _dy, nthreads, nblocks)
-        Metal.@sync @metal threads=nthreads grid=nblocks laplace!(T2, T, D, dt, _dx, _dy)
+        Metal.@sync @metal threads=nthreads groups=nblocks laplace!(T2, T, D, dt, _dx, _dy)
     return
 end
 
 function compute!(T2, T, D, dt, nthreads, nblocks)
-        Metal.@sync @metal threads=nthreads grid=nblocks memcopy!(T2, T, D, dt)
+        Metal.@sync @metal threads=nthreads groups=nblocks memcopy!(T2, T, D, dt)
     return
 end
 
@@ -58,7 +57,7 @@ function main(; do_visu=false, run_type=:simu)
     T2 = copy(T)
     if run_type==:simu
         for it = 1:nt
-            Metal.@sync @metal threads=nthreads grid=nblocks laplace!(T2, T, D, dt, _dx, _dy)
+            Metal.@sync @metal threads=nthreads groups=nblocks laplace!(T2, T, D, dt, _dx, _dy)
             T, T2 = T2, T
             # visu
             if (it % nout == 0) && do_visu
@@ -75,7 +74,7 @@ function main(; do_visu=false, run_type=:simu)
         println(" Perf Laplace: time (s) = $(round(t_it, digits=5)), T_eff (GB/s) = $(round(t_eff2, digits=2)) ($(round(t_eff2/t_eff1, digits=2))% of memcopy)")
     elseif run_type==:profile
         # INFO: needs `ENV["METAL_CAPTURE_ENABLED"] = 1` to be set
-        Metal.@profile Metal.@sync @metal threads=nthreads grid=nblocks laplace!(T2, T, D, dt, _dx, _dy)
+        Metal.@profile Metal.@sync @metal threads=nthreads groups=nblocks laplace!(T2, T, D, dt, _dx, _dy)
     end
     finalize(T)
     finalize(D)
